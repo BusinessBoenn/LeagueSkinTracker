@@ -80,32 +80,36 @@ def GetSkins():
     subprocess.run (["powershell", "-Command", cmd], capture_output=True, text=True)
 
 
-def CleanData():
+def CleanData(encoder):
 
     cleanData = []
-    with open("skins.json", "r", encoding="utf-16") as f:
+    with open("skins.json", "r", encoding=encoder) as f:
         data = json.load(f)
 
     for item in data:
         cleanData.append({"championId": item["championId"], "name": item["name"], "owned": item["ownership"]["owned"], "tilePath": item["tilePath"]})
     
-    with open("cleanedData.json", "w", encoding="utf-16") as f:
+    with open("cleanedData.json", "w", encoding=encoder) as f:
         json.dump(cleanData, f)
 
 
 
 if __name__ == "__main__":
 
+    encoder = ""
+
     is_running = any(p.name().lower() == "leagueclientux.exe" for p in psutil.process_iter())
 
 
     if is_windows_11():
         print("You are running Win11")
+        encoder = "utf-16"
     else:
         print("Running Win10 or older")
+        encoder = "utf-8-sig"
 
     if is_running:
         GetSkins()
-        CleanData()
+        CleanData(encoder)
     else:
         print("LeagueClientUx.exe nicht gefunden")
