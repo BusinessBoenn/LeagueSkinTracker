@@ -72,7 +72,7 @@ def GetSkins():
         Write-Error "Fehler beim Parsen der Summoner-Antwort."
         return
         }
-
+        $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
         & $curlPath --insecure -H "Accept: application/json" -u "riot:$token" "https://127.0.0.1:$port/lol-champions/v1/inventories/$summonerId/skins-minimal" > skins.json
         & $curlPath --insecure -H "Accept: application/json" -u "riot:$token" "https://127.0.0.1:$port/lol-loot/v1/player-loot" > skinsLoot.json
         """
@@ -83,7 +83,7 @@ def GetSkins():
 def CleanData(encoder):
 
     cleanData = []
-    with open("skins.json", "r", encoding=encoder) as f:
+    with open("skins.json", "r", encoding="utf-8-sig") as f:
         data = json.load(f)
 
     for item in data:
