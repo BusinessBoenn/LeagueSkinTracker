@@ -3,6 +3,7 @@ import subprocess
 import winreg
 import psutil
 import json
+from collections import defaultdict
 
 path = os.path.dirname(os.path.abspath(__file__))
 os.chdir(path)
@@ -87,10 +88,24 @@ def CleanData():
         data = json.load(f)
 
     for item in data:
-        cleanData.append({"championId": item["championId"], "name": item["name"], "owned": item["ownership"]["owned"], "tilePath": item["tilePath"]})
+        cleanData.append({"championId": item["championId"], "id": item["id"], "name": item["name"], "owned": item["ownership"]["owned"], "tilePath": item["tilePath"], "isBase": item["isBase"]})
     
     with open("cleanedData.json", "w", encoding="utf-8-sig") as f:
-        json.dump(cleanData, f)
+        json.dump(cleanData, f, indent=2)
+
+    return cleanData
+
+def GroupData(data):
+    grouped = defaultdict(list)
+    for d in data:
+        key_value = d.get("championId")
+        grouped[key_value].append(d)
+
+    with open("groupedData.json", "w", encoding="utf-8-sig") as f:
+        json.dump(dict(grouped), f, indent=2)
+
+    return dict(grouped)
+
 
 
 
@@ -107,6 +122,7 @@ if __name__ == "__main__":
 
     if is_running:
         GetSkins()
-        CleanData()
+        cleanedData = CleanData()
+        groupedData = GroupData(cleanedData)
     else:
         print("LeagueClientUx.exe nicht gefunden")
