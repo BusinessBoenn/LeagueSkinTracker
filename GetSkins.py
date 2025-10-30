@@ -164,4 +164,5 @@ if __name__ == "__main__":
     else:
         print("LeagueClientUx.exe nicht gefunden")
 
-    print("Done")
+    with open("FEIN.json", "w", encoding="utf-8-sig") as f:
+        json.dump(Skins, f, indent=2)
