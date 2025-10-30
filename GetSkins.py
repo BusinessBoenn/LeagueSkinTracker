@@ -90,9 +90,6 @@ def CleanData():
     for item in data:
         cleanData.append({"championId": item["championId"], "id": item["id"], "name": item["name"], "owned": item["ownership"]["owned"], "tilePath": item["tilePath"], "isBase": item["isBase"]})
     
-    with open("cleanedData.json", "w", encoding="utf-8-sig") as f:
-        json.dump(cleanData, f, indent=2)
-
     return cleanData
 
 def GroupData(data):
@@ -101,11 +98,48 @@ def GroupData(data):
         key_value = d.get("championId")
         grouped[key_value].append(d)
 
-    with open("groupedData.json", "w", encoding="utf-8-sig") as f:
-        json.dump(dict(grouped), f, indent=2)
-
     return dict(grouped)
 
+def renameData(data):
+    keys = []
+    names = []
+
+    for x, y in data.items():
+        names.append(y[0]["name"])
+        keys.append(x)
+
+    for i in range(0, len(names)):
+
+        if "Doom Bot" in data[keys[i]][0]["name"]:
+            data.pop(keys[i])
+        else:
+            data[names[i]] = data.pop(keys[i])
+        
+    return data
+
+def getSkins(data):
+    skins ={}
+
+    for x, y in data.items():
+        total = -1
+        owned = -1
+        skins[x] = {}
+
+        for i in range (0, len(y)):
+            total += 1
+            if y[i]["owned"]:
+                owned += 1
+
+            if y[i]["isBase"]:
+                continue
+
+            skins[x][y[i]["name"]] = y[i]["owned"]
+
+        skins[x]["total"] = total
+        skins[x]["owned"] = owned
+
+    return skins
+       
 
 
 
@@ -124,5 +158,10 @@ if __name__ == "__main__":
         GetSkins()
         cleanedData = CleanData()
         groupedData = GroupData(cleanedData)
+        renamedData = renameData(groupedData)
+        Skins = getSkins(renamedData)
+
     else:
         print("LeagueClientUx.exe nicht gefunden")
+
+    print("Done")
