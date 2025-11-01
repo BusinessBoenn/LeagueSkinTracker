@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeagueSkinTracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <div id="main-content" style="display:none;">
+        <h1>LeagueSkinTracker</h1>
+
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Champion or Skin...">
+        </div>
+
+        <div class="champ-grid">
+            {% for champ, data in skins.items() %}
+                <div class="champ-card">
+                    <h2>{{ champ }}</h2>
+                    <p><strong>Owned Skins:</strong> {{ data["owned"] }} / {{ data["total"] }}</p>
+                    <ul>
+                        {% for skin, owned in data.items() if skin not in ["total", "owned"] %}
+                            <li class="{{ 'owned' if owned else 'not-owned' }}">{{ skin }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById("searchInput");
+        searchInput.addEventListener("input", function () {
+            const term = this.value.toLowerCase();
+            document.querySelectorAll(".champ-card").forEach(card => {
+                const champName = card.querySelector("h2").textContent.toLowerCase();
+                const skins = Array.from(card.querySelectorAll("li")).map(li => li.textContent.toLowerCase());
+                const match = champName.includes(term) || skins.some(s => s.includes(term));
+                card.style.display = match ? "block" : "none";
+            });
+        });
+
+        window.addEventListener("load", () => {
+            document.getElementById("loading-screen").style.display = "none";
+            document.getElementById("main-content").style.display = "block";
+        });
+    </script>
+</body>
+</html>

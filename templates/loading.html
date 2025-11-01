@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Loading...</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetch("/data")
+        .then(response => response.text())
+        .then(html => {
+          document.open();
+          document.write(html);
+          document.close();
+        })
+        .catch(err => {
+          document.body.innerHTML = "<h2>Error Loading Skins</h2><pre>" + err + "</pre>";
+        });
+    });
+  </script>
+</head>
+<body class="loading-screen">
+  <div class="spinner"></div>
+  <h2>Loading...</h2>
+</body>
+</html>

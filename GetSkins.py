@@ -121,17 +121,16 @@ def getSkins(data):
     skins ={}
 
     for x, y in data.items():
-        total = -1
-        owned = -1
+        total = 0
+        owned = 0
         skins[x] = {}
 
         for i in range (0, len(y)):
+            if y[i]["isBase"]:
+                continue
             total += 1
             if y[i]["owned"]:
                 owned += 1
-
-            if y[i]["isBase"]:
-                continue
 
             skins[x][y[i]["name"]] = y[i]["owned"]
 
@@ -149,11 +148,6 @@ if __name__ == "__main__":
     is_running = any(p.name().lower() == "leagueclientux.exe" for p in psutil.process_iter())
 
 
-    if is_windows_11():
-        print("You are running Win11")
-    else:
-        print("Running Win10 or older")
-
     if is_running:
         GetSkins()
         cleanedData = CleanData()
@@ -164,5 +158,5 @@ if __name__ == "__main__":
     else:
         print("LeagueClientUx.exe nicht gefunden")
 
-    with open("FEIN.json", "w", encoding="utf-8-sig") as f:
-        json.dump(Skins, f, indent=2)
+    with open("final.json", "w", encoding="utf-8-sig") as f:
+        json.dump(dict(sorted(Skins.items())), f, indent=2)
