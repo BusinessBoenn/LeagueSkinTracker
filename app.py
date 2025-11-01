@@ -1,8 +1,10 @@
-from flask import Flask, render_template, jsonify, redirect, url_for
+from flask import Flask, render_template
 import json
 import os
 import subprocess
-import threading
+import webbrowser
+from threading import Timer
+
 
 path = os.path.dirname(os.path.abspath(__file__))
 os.chdir(path)
@@ -18,6 +20,7 @@ def load_skins():
     with open("final.json", "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
+
 @app.route("/")
 def home():
     return render_template("loading.html")
@@ -29,9 +32,10 @@ def data():
         skins = load_skins()
         return render_template("index.html", skins=skins)
     except Exception as e:
-        return f"<h1>Fehler beim Laden:</h1><pre>{e}</pre>"
-
+        return f"<h1>Error while loading</h1><pre>{e}</pre>"
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    Timer(1, lambda: webbrowser.open("http://127.0.0.1:5000/")).start()
+    app.run()
+    
