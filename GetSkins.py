@@ -94,7 +94,7 @@ async def connect(connection):
 
     skins = await (await connection.request("get", "/lol-champions/v1/inventories/"+summonerId+"/skins-minimal")).json()
     loot = await (await connection.request("get", "/lol-loot/v1/player-loot")).json()
-    await cleanData(connection, skins)
+    cleanData(connection, skins)
 
 
 @connector.close
