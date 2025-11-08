@@ -15,13 +15,19 @@ def run_GetSkins():
     subprocess.run(["python", "GetSkins.py"], check=True)
 
 def load_skins():
-    with open("final.json", "r") as f:
-        return json.load(f)
+        with open("final.json", "r") as f:
+            return json.load(f)
+
 
 @app.route("/")
 def home():
-    skins = load_skins()
-    return render_template("index.html", skins=skins)
+    try:
+        skins = load_skins()
+        return render_template("index.html", skins=skins)
+    except:
+        run_GetSkins()
+        return f"<h1>First time use?</h1><pre>Make sure League of Legends is running and try <a href='/'>updating</a> the skin data.</pre>"
+
 
 @app.route("/update")
 def update():
@@ -30,7 +36,7 @@ def update():
         skins = load_skins()
         return render_template("index.html", skins=skins)
     except Exception as e:
-        return f"<h1>Error while loading</h1><pre>{e}</pre>"
+        return f"<h1>Error updating skins</h1><pre>{e}</pre>"
 
 if __name__ == "__main__":
     Timer(1, lambda: webbrowser.open("http://127.0.0.1:5000/")).start()
