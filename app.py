@@ -11,22 +11,20 @@ os.chdir(path)
 
 
 app = Flask(__name__)
-
 def run_GetSkins():
     subprocess.run(["python", "GetSkins.py"], check=True)
-
 
 def load_skins():
     with open("final.json", "r") as f:
         return json.load(f)
 
-
 @app.route("/")
 def home():
-    return render_template("loading.html")
+    skins = load_skins()
+    return render_template("index.html", skins=skins)
 
-@app.route("/data")
-def data():
+@app.route("/update")
+def update():
     try:
         run_GetSkins()
         skins = load_skins()
@@ -34,8 +32,6 @@ def data():
     except Exception as e:
         return f"<h1>Error while loading</h1><pre>{e}</pre>"
 
-
 if __name__ == "__main__":
     Timer(1, lambda: webbrowser.open("http://127.0.0.1:5000/")).start()
     app.run()
-    

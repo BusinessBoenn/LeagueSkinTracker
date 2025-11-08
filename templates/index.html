@@ -1,54 +1,501 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>LeagueSkinTracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div id="loading-screen">
-        <div class="spinner"></div>
-        <p>Loading...</p>
+    <button id="updateBtn" aria-label="Update Skins">Update Skins</button>
+
+    <div id="loadingOverlay" class="loading-screen visible" aria-hidden="false">
+        <div class="spinner" aria-hidden="true"></div>
+    <div class="loading-text">Loading…</div>
     </div>
 
-    <div id="main-content" style="display:none;">
+    <main id="mainContent" class="app" style="opacity:0;pointer-events:none;">
         <h1>LeagueSkinTracker</h1>
 
         <div class="search-container">
-            <input type="text" id="searchInput" placeholder="Champion or Skin...">
+            <div class="search-controls">
+                <input id="searchInput" type="search" placeholder="Champion or skin..." aria-label="Search champion or skin">
+                <button id="toggleAllBtn" aria-label="Toggle all">
+                    <span class="toggle-icon">▸</span> All
+                </button>
+            </div>
         </div>
 
-        <div class="champ-grid">
+        <section class="champ-grid" id="champGrid">
             {% for champ, data in skins.items() %}
-                <div class="champ-card">
-                    <h2>{{ champ }}</h2>
-                    <p><strong>Owned Skins:</strong> {{ data["owned"] }} / {{ data["total"] }}</p>
-                    <ul>
-                        {% for skin, owned in data.items() if skin not in ["total", "owned"] %}
+                <article class="champ-card" data-champ="{{ champ | lower }}">
+                    <div class="card-header">
+                        <h2>{{ champ }}</h2>
+                        <button class="toggle-btn" aria-expanded="false" aria-controls="skins-{{ data['id'] }}" aria-label="Toggle skins">▸</button>
+                    </div>
+                    <p class="owned-count">Owned: <strong>{{ data["owned"] }}</strong> / {{ data["total"] }}</p>
+                    <ul id="skins-{{ data['id'] }}" class="skin-list">
+                        {% for skin, owned in data.items() if skin not in ['total','owned', 'id'] %}
                             <li class="{{ 'owned' if owned else 'not-owned' }}">{{ skin }}</li>
                         {% endfor %}
                     </ul>
-                </div>
+                </article>
             {% endfor %}
-        </div>
-    </div>
+        </section>
+    </main>
 
+    <!-- Total skin progress bar (fixed) -->
+    <div id="totalProgressBar" role="status" aria-live="polite">
+        <div class="progress-fill" style="width:0%"></div>
+        <div class="progress-label">0 / 0</div>
+    </div>
     <script>
-        const searchInput = document.getElementById("searchInput");
-        searchInput.addEventListener("input", function () {
-            const term = this.value.toLowerCase();
-            document.querySelectorAll(".champ-card").forEach(card => {
-                const champName = card.querySelector("h2").textContent.toLowerCase();
-                const skins = Array.from(card.querySelectorAll("li")).map(li => li.textContent.toLowerCase());
-                const match = champName.includes(term) || skins.some(s => s.includes(term));
-                card.style.display = match ? "block" : "none";
-            });
+        const updateBtn = document.getElementById('updateBtn');
+        const overlay = document.getElementById('loadingOverlay');
+        const mainContent = document.getElementById('mainContent');
+        const searchInput = document.getElementById('searchInput');
+        const champGrid = document.getElementById('champGrid');
+        const toggleAllBtn = document.getElementById('toggleAllBtn');
+
+        // Capture initial order of champion cards so we can restore it when the search is cleared
+        const initialCards = Array.from(champGrid.children);
+
+        function showOverlay() {
+            overlay.classList.add('visible');
+            overlay.setAttribute('aria-hidden', 'false');
+        }
+        function hideOverlay() {
+            overlay.classList.remove('visible');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        updateBtn.addEventListener('click', async () => {
+            // Show loading overlay and perform an in-place update via fetch.
+            // After the server-side update completes we'll navigate back to '/'.
+            try {
+                showOverlay();
+                updateBtn.disabled = true;
+
+                // Call the update endpoint. Use GET to match previous behavior.
+                const resp = await fetch('/update', { method: 'GET', cache: 'no-store' });
+
+                // If the server returned a non-2xx status, surface an error.
+                if (!resp.ok) {
+                    const text = await resp.text().catch(() => resp.statusText || 'Update failed');
+                    throw new Error(text || `Update failed (${resp.status})`);
+                }
+
+                // On success, navigate to the home page to show refreshed data.
+                window.location.href = '/';
+            } catch (err) {
+                // Hide overlay and re-enable the button so user can try again.
+                hideOverlay();
+                updateBtn.disabled = false;
+                console.error('Update failed:', err);
+                alert('Update failed: ' + (err && err.message ? err.message : 'unknown error'));
+            }
         });
 
-        window.addEventListener("load", () => {
-            document.getElementById("loading-screen").style.display = "none";
-            document.getElementById("main-content").style.display = "block";
+        // Prioritized search: champions are prioritized over skins; matches at the start of a name
+        // are weighted higher than substring matches. Results are filtered and re-ordered by score.
+
+        function computeScore(card, term) {
+            const champ = (card.getAttribute('data-champ') || '').toLowerCase();
+            const skinLis = Array.from(card.querySelectorAll('.skin-list li'));
+            const skins = skinLis.map(li => ({ text: li.textContent.toLowerCase(), element: li }));
+            let score = 0;
+            let championMatches = false;
+            let matchingSkins = [];
+
+            if (!term) return { score: 0, championMatches: true, matchingSkins: [] };
+
+            // Champion name scoring (highest priority)
+            if (champ === term) { 
+                score += 10000; // Exact champion match should always rank highest
+                championMatches = true;
+            } else if (champ.startsWith(term)) { 
+                // For single-letter searches, boost champions that start with the letter
+                score += term.length === 1 ? 8000 : 2000; // Single-letter search strongly prioritizes name starts
+                championMatches = true;
+            } else if (champ.includes(term)) { 
+                // For single-letter searches, give much lower weight to occurrences inside the name
+                score += term.length === 1 ? 100 : 1000; // Single-letter occurrences are less relevant
+                championMatches = true;
+            }
+
+            // Skin name scoring (secondary)
+            let bestSkinMatch = 0; // Track best skin match score
+            skins.forEach(({ text, element }) => {
+                let skinScore = 0;
+                // Exact skin name match
+                if (text === term) {
+                    skinScore = 500;
+                }
+                // Skin starts with term (e.g. "Blood" matches "Blood Moon")
+                else if (text.startsWith(term)) {
+                    skinScore = 400;
+                }
+                // Term is a word in skin name (e.g. "Moon" matches "Blood Moon")
+                else if (text.split(' ').some(word => word.toLowerCase() === term)) {
+                    skinScore = 300;
+                }
+                // Term appears at start of any word in skin name
+                else if (text.split(' ').some(word => word.toLowerCase().startsWith(term))) {
+                    skinScore = 200;
+                }
+                // Term appears anywhere in skin name
+                else if (text.includes(term)) {
+                    skinScore = 100;
+                }
+                
+                if (skinScore > 0) {
+                    matchingSkins.push(element);
+                    // Only use the highest skin score
+                    bestSkinMatch = Math.max(bestSkinMatch, skinScore);
+                }
+            });
+            
+            // Add best skin match score to total
+            score += bestSkinMatch;
+
+            return { score, championMatches, matchingSkins };
+        }
+
+        function reorderGrid() {
+            const term = searchInput.value.trim().toLowerCase();
+            const cards = initialCards.slice();
+
+            // Handle toggle all button visibility and state
+            if (term) {
+                toggleAllBtn.classList.add('hidden');
+                document.body.setAttribute('data-search-term', term);
+            } else {
+                toggleAllBtn.classList.remove('hidden');
+                toggleAllBtn.setAttribute('aria-expanded', 'false');
+                toggleAllBtn.querySelector('.toggle-icon').textContent = '▸';
+                document.body.removeAttribute('data-search-term');
+            }
+
+            const scored = cards.map(card => {
+                const result = computeScore(card, term);
+                const champ = (card.getAttribute('data-champ') || '').toLowerCase();
+                return { card, ...result, champ };
+            });
+
+            // If no term, restore visibility, collapse all lists and relayout columns
+            if (!term) {
+                initialCards.forEach(c => {
+                    c.style.display = '';
+                    // Show all skins
+                    c.querySelectorAll('.skin-list li').forEach(li => li.style.display = '');
+                    // Collapse the list
+                    const skinList = c.querySelector('.skin-list');
+                    const toggleBtn = c.querySelector('.toggle-btn');
+                    if (skinList && !skinList.classList.contains('collapsed')) {
+                        skinList.classList.add('collapsed');
+                        if (toggleBtn) {
+                            toggleBtn.textContent = '▸';
+                            toggleBtn.setAttribute('aria-expanded', 'false');
+                        }
+                    }
+                });
+                layoutCards();
+                return;
+            }
+
+            // With a search term: show only matches and order by score then alphabetically
+            const visible = scored.filter(s => s.score > 0);
+            if (visible.length === 0) {
+                initialCards.forEach(c => c.style.display = 'none');
+                return;
+            }
+
+            visible.sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                return a.champ.localeCompare(b.champ, undefined, { sensitivity: 'base' });
+            });
+
+            const visibleSet = new Set(visible.map(v => v.card));
+            
+            // Set visibility according to score and update skin visibility
+            initialCards.forEach(card => {
+                const isVisible = visibleSet.has(card);
+                card.style.display = isVisible ? '' : 'none';
+                if (isVisible) {
+                    const result = scored.find(s => s.card === card);
+                    // Get toggle button and skin list
+                    const toggleBtn = card.querySelector('.toggle-btn');
+                    const skinList = card.querySelector('.skin-list');
+                    
+                    // Expand the list
+                    if (skinList && skinList.classList.contains('collapsed')) {
+                        skinList.classList.remove('collapsed');
+                        if (toggleBtn) {
+                            toggleBtn.textContent = '▾';
+                            toggleBtn.setAttribute('aria-expanded', 'true');
+                        }
+                    }
+                    
+                    // If champion matches, show all skins
+                    if (result.championMatches) {
+                        card.querySelectorAll('.skin-list li').forEach(li => li.style.display = '');
+                    } else {
+                        // Only show matching skins
+                        card.querySelectorAll('.skin-list li').forEach(li => {
+                            li.style.display = result.matchingSkins.includes(li) ? '' : 'none';
+                        });
+                    }
+                }
+            });
+
+            // Build an ordered array of cards to preserve weighted sorting when laying out
+            const orderedCards = visible.map(v => v.card);
+            // After updating visibility, relayout columns using the ordered list
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    layoutCards(orderedCards);
+                    // update totals after relayout/search
+                    updateTotalProgress();
+                }));
+        }
+
+        // Column-based Masonry layout helpers: create columns and distribute cards into them
+        function getColumnCount() {
+            const containerWidth = champGrid.clientWidth || champGrid.offsetWidth;
+            const colMin = 260; // approximate card width
+            const cols = Math.max(1, Math.floor(containerWidth / colMin));
+            return cols;
+        }
+
+        function clearColumns() {
+            while (champGrid.firstChild) champGrid.removeChild(champGrid.firstChild);
+        }
+
+        function createColumns(count) {
+            clearColumns();
+            const cols = [];
+            for (let i = 0; i < count; i++) {
+                const col = document.createElement('div');
+                col.className = 'masonry-column';
+                champGrid.appendChild(col);
+                cols.push(col);
+            }
+            return cols;
+        }
+
+        function layoutCards(orderedCards = null) {
+            // Store current scroll position and focused element
+            const scrollPos = window.scrollY;
+            
+            // If an ordered list is provided (from search), use it; otherwise use initial order
+            const visible = orderedCards ? orderedCards : initialCards.filter(c => c.style.display !== 'none');
+            const colCount = getColumnCount();
+            const cols = createColumns(colCount);
+
+            // Use batch processing to improve layout calculations
+            // First pass: calculate initial column heights
+            const columnHeights = new Array(colCount).fill(0);
+            
+            // Second pass: distribute cards to shortest columns while respecting order
+            visible.forEach((card, index) => {
+                card.style.width = '';
+                
+                // Find shortest column
+                let shortestCol = 0;
+                let minHeight = columnHeights[0];
+                
+                for (let i = 1; i < cols.length; i++) {
+                    if (columnHeights[i] < minHeight) {
+                        minHeight = columnHeights[i];
+                        shortestCol = i;
+                    }
+                }
+                
+                // Add card to shortest column
+                cols[shortestCol].appendChild(card);
+                
+                // Update column height (use getBoundingClientRect for more accurate height)
+                columnHeights[shortestCol] += card.getBoundingClientRect().height;
+            });
+
+            // Restore scroll position after layout
+            window.scrollTo({
+                top: scrollPos,
+                behavior: 'instant'
+            });
+            // ensure totals are up-to-date after any layout change
+            // (ownership values don't change during layout, but keep display synced)
+            updateTotalProgress();
+        }
+
+        // debounce helper
+        function debounce(fn, ms) {
+            let t;
+            return function(...args) {
+                clearTimeout(t);
+                t = setTimeout(() => fn.apply(this, args), ms);
+            };
+        }
+
+        window.addEventListener('resize', debounce(() => {
+            // re-layout on resize
+            requestAnimationFrame(() => layoutCards());
+        }, 120));
+
+        // Debounced search handler to avoid layout thrash while typing
+        const debouncedInput = debounce((term) => {
+            if (!term) {
+                initialCards.forEach(c => c.style.display = '');
+                reorderGrid();
+                return;
+            }
+            initialCards.forEach(card => {
+                const score = computeScore(card, term);
+                card.style.display = score > 0 ? '' : 'none';
+            });
+            reorderGrid();
+        }, 120);
+
+        searchInput.addEventListener('input', (e) => {
+            debouncedInput(e.target.value.trim().toLowerCase());
+        });
+
+        // Handle search field clearing (X button click)
+        searchInput.addEventListener('search', (e) => {
+            if (e.target.value === '') {
+                debouncedInput('');
+            }
+        });
+
+        window.addEventListener('pageshow', () => {
+            hideOverlay();
+            mainContent.style.opacity = '1';
+            mainContent.style.pointerEvents = 'auto';
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            hideOverlay();
+            mainContent.style.opacity = '1';
+            mainContent.style.pointerEvents = 'auto';
+            // Collapse all skin lists by default and wire up toggle buttons
+            document.querySelectorAll('.skin-list').forEach(ul => ul.classList.add('collapsed'));
+            document.querySelectorAll('.champ-card').forEach(card => {
+                const btn = card.querySelector('.toggle-btn');
+                const list = card.querySelector('.skin-list');
+                if (!btn || !list) return;
+
+                btn.textContent = '▸';
+                btn.setAttribute('aria-expanded', 'false');
+
+                // Function to toggle the card
+                const toggleCard = (e) => {
+                    e.stopPropagation();
+                    const expanded = list.classList.toggle('collapsed') ? false : true;
+                    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                    btn.textContent = expanded ? '▾' : '▸';
+                    
+                    // After toggling we need to relayout columns so the masonry fills gaps
+                    // If we're in search mode, get the current ordered visible cards to preserve search order
+                    const term = document.body.getAttribute('data-search-term');
+                    if (term) {
+                        const scored = initialCards.map(card => {
+                            const result = computeScore(card, term);
+                            const champ = (card.getAttribute('data-champ') || '').toLowerCase();
+                            return { card, ...result, champ };
+                        }).filter(s => s.score > 0)
+                        .sort((a, b) => {
+                            if (b.score !== a.score) return b.score - a.score;
+                            return a.champ.localeCompare(b.champ, undefined, { sensitivity: 'base' });
+                        });
+
+                        // Update skin visibility based on champion/skin matches
+                        const result = scored.find(s => s.card === card);
+                        if (result && !result.championMatches) {
+                            // Only show matching skins if champion doesn't match
+                            list.querySelectorAll('li').forEach(li => {
+                                li.style.display = result.matchingSkins.includes(li) ? '' : 'none';
+                            });
+                        }
+
+                        const orderedCards = scored.map(s => s.card);
+                        requestAnimationFrame(() => requestAnimationFrame(() => layoutCards(orderedCards)));
+                    } else {
+                        // Show all skins when not searching
+                        list.querySelectorAll('li').forEach(li => li.style.display = '');
+                        requestAnimationFrame(() => requestAnimationFrame(() => layoutCards()));
+                    }
+                };
+
+                // Make the entire card clickable
+                card.addEventListener('click', toggleCard);
+            });
+            // After initial collapse, layout columns (use double rAF to ensure layout is settled)
+            requestAnimationFrame(() => requestAnimationFrame(() => layoutCards()));
+
+            // initialize total progress bar
+            function updateTotalProgress(){
+                const label = document.querySelector('#totalProgressBar .progress-label');
+                const fill = document.querySelector('#totalProgressBar .progress-fill');
+                if (!label || !fill) return;
+
+                    // Sum owned and total from the DOM (owned-count elements show "Owned: X / Y")
+                let sumOwned = 0;
+                let sumTotal = 0;
+                document.querySelectorAll('.owned-count').forEach(el => {
+                    try{
+                        const txt = el.textContent || '';
+                        const m = txt.match(/(\d+)\s*\/\s*(\d+)/);
+                        if (m) {
+                            sumOwned += parseInt(m[1],10);
+                            sumTotal += parseInt(m[2],10);
+                        } else {
+                            const nums = txt.match(/(\d+)/g);
+                            if (nums && nums.length>=2){ sumOwned += parseInt(nums[0],10); sumTotal += parseInt(nums[1],10); }
+                        }
+                    }catch(e){}
+                });
+
+                const pct = sumTotal > 0 ? Math.max(0, Math.min(100, (sumOwned / sumTotal) * 100)) : 0;
+                fill.style.width = pct + '%';
+                // show only the total numbers centered, no percent or extra text
+                label.textContent = `${sumOwned} / ${sumTotal}`;
+            }
+
+            // expose to outer scope so other functions can call it
+            window.updateTotalProgress = updateTotalProgress;
+
+            // initial update
+            updateTotalProgress();
+
+            // Toggle All Button functionality
+            toggleAllBtn.setAttribute('aria-expanded', 'false');
+            let allExpanded = false;
+            
+            toggleAllBtn.addEventListener('click', () => {
+                // only active when no search is running
+                if (searchInput.value.trim()) return;
+
+                allExpanded = !allExpanded;
+
+                // Update button state (use same characters as per-card toggles)
+                toggleAllBtn.setAttribute('aria-expanded', String(allExpanded));
+                toggleAllBtn.querySelector('.toggle-icon').textContent = allExpanded ? '▾' : '▸';
+
+                // Toggle all cards (no search mode here)
+                initialCards.forEach(card => {
+                    const btn = card.querySelector('.toggle-btn');
+                    const list = card.querySelector('.skin-list');
+                    if (!btn || !list) return;
+
+                    btn.textContent = allExpanded ? '▾' : '▸';
+                    btn.setAttribute('aria-expanded', String(allExpanded));
+
+                    if (allExpanded) list.classList.remove('collapsed');
+                    else list.classList.add('collapsed');
+                });
+
+                // Simple relayout after toggling
+                requestAnimationFrame(() => requestAnimationFrame(() => layoutCards()));
+            });
         });
     </script>
 </body>

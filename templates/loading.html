@@ -1,27 +1,16 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Loading...</title>
+  <title>Loading</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script>
-
-    document.addEventListener("DOMContentLoaded", () => {
-      fetch("/data")
-        .then(response => response.text())
-        .then(html => {
-          document.open();
-          document.write(html);
-          document.close();
-        })
-        .catch(err => {
-          document.body.innerHTML = "<h2>Error Loading Skins</h2><pre>" + err + "</pre>";
-        });
-    });
-  </script>
 </head>
 <body class="loading-screen">
-  <div class="spinner"></div>
-  <h2>Loading...</h2>
+  <div class="spinner" aria-hidden="true"></div>
+  <div class="loading-text">Loading skins…</div>
+  <script>
+    setTimeout(() => { window.location.href = '/'; }, 600);
+  </script>
 </body>
 </html>
