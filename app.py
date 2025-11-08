@@ -13,11 +13,11 @@ os.chdir(path)
 app = Flask(__name__)
 
 def run_GetSkins():
-    subprocess.run(["python3", "GetSkins.py"], check=True)
+    subprocess.run(["python", "GetSkins.py"], check=True)
 
 
 def load_skins():
-    with open("final.json", "r", encoding="utf-8-sig") as f:
+    with open("final.json", "r") as f:
         return json.load(f)
 
 
