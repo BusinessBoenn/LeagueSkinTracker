@@ -26,7 +26,7 @@ def home():
         return render_template("index.html", skins=skins)
     except:
         run_GetSkins()
-        return f"<h1>First time use?</h1><pre>Make sure League of Legends is running and try <a href='/'>updating</a> the skin data.</pre>"
+        return f"<h1>First time use?</h1><pre>Make sure League of Legends is running and to <a href='/'>create the needed file.</a></pre>"
 
 
 @app.route("/update")
