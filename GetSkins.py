@@ -76,12 +76,6 @@ def cleanData(connection, skindata):
 @connector.ready
 async def connect(connection):
 
-    is_running = any(p.name().lower() == "leagueclientux.exe" for p in psutil.process_iter())
-
-    if not is_running:
-        print("LeagueClientUx.exe nicht gefunden")
-        sys.exit()
-
     
     summoner = await connection.request("get", "/lol-summoner/v1/current-summoner/account-and-summoner-ids")
 
@@ -99,8 +93,12 @@ async def connect(connection):
 
 @connector.close
 async def disconnect(connection):
-    print("Connector closed")
+    print("Success!")
 
+is_running = any(p.name().lower() == "leagueclientux.exe" for p in psutil.process_iter())
 
+if not is_running:
+    print("LeagueClientUx.exe not found")
+    sys.exit()
 
 connector.start()
