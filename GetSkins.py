@@ -64,7 +64,7 @@ def cleanData(connection, skindata):
         skins[x]["id"] = y[0]["championId"]
 
 
-        with open("finaln.json", "w") as f:
+        with open("final.json", "w") as f:
             json.dump(dict(sorted(skins.items())), f, indent=2)
 
 
