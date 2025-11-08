@@ -74,21 +74,27 @@ def cleanData(connection, skindata):
 
 
 @connector.ready
-def connect(connection):
+async def connect(connection):
 
+    is_running = any(p.name().lower() == "leagueclientux.exe" for p in psutil.process_iter())
 
-    summoner = connection.request("get", "/lol-summoner/v1/current-summoner/account-and-summoner-ids")
+    if not is_running:
+        print("LeagueClientUx.exe nicht gefunden")
+        sys.exit()
+
+    
+    summoner = await connection.request("get", "/lol-summoner/v1/current-summoner/account-and-summoner-ids")
 
     if summoner.status != 200:
         print("Something went wrong while sending the first request")
         sys.exit()
 
-    sum = summoner.json()
+    sum = await summoner.json()
     summonerId = str(sum["summonerId"])
 
-    skins = connection.request("get", "/lol-champions/v1/inventories/"+summonerId+"/skins-minimal").json()
-    loot = connection.request("get", "/lol-loot/v1/player-loot").json()
-    cleanData(connection, skins)
+    skins = await (await connection.request("get", "/lol-champions/v1/inventories/"+summonerId+"/skins-minimal")).json()
+    loot = await (await connection.request("get", "/lol-loot/v1/player-loot")).json()
+    await cleanData(connection, skins)
 
 
 @connector.close
