@@ -252,8 +252,6 @@
             // After updating visibility, relayout columns using the ordered list
                 requestAnimationFrame(() => requestAnimationFrame(() => {
                     layoutCards(orderedCards);
-                    // update totals after relayout/search
-                    updateTotalProgress();
                 }));
         }
 
@@ -321,9 +319,6 @@
                 top: scrollPos,
                 behavior: 'instant'
             });
-            // ensure totals are up-to-date after any layout change
-            // (ownership values don't change during layout, but keep display synced)
-            updateTotalProgress();
         }
 
         // debounce helper
@@ -458,9 +453,6 @@
                 // show only the total numbers centered, no percent or extra text
                 label.textContent = `${sumOwned} / ${sumTotal}`;
             }
-
-            // expose to outer scope so other functions can call it
-            window.updateTotalProgress = updateTotalProgress;
 
             // initial update
             updateTotalProgress();
