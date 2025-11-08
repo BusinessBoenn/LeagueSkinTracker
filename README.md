@@ -6,7 +6,7 @@ pip install psutil flask lcu-driver
 
 # Usage
 
-Open League Client <br />
+Open League Client to update owned skins (optional) <br />
 Run app.py
 
 
