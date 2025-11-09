@@ -27,15 +27,15 @@
         </div>
 
         <section class="champ-grid" id="champGrid">
-            {% for champ, data in skins.items() %}
-                <article class="champ-card" data-champ="{{ champ | lower }}">
+            {% for champ_id, data in skins.items() %}
+                <article class="champ-card" data-champ="{{ data['name'] | lower }}">
                     <div class="card-header">
-                        <h2>{{ champ }}</h2>
-                        <button class="toggle-btn" aria-expanded="false" aria-controls="skins-{{ data['id'] }}" aria-label="Toggle skins">▸</button>
+                        <h2>{{ data['name'] }}</h2>
+                        <button class="toggle-btn" aria-expanded="false" aria-controls="skins-{{ champ_id }}" aria-label="Toggle skins">▸</button>
                     </div>
                     <p class="owned-count">Owned: <strong>{{ data["owned"] }}</strong> / {{ data["total"] }}</p>
-                    <ul id="skins-{{ data['id'] }}" class="skin-list">
-                        {% for skin, owned in data.items() if skin not in ['total','owned', 'id'] %}
+                    <ul id="skins-{{ champ_id }}" class="skin-list">
+                        {% for skin, owned in data.items() if skin not in ['total','owned', 'name'] %}
                             <li class="{{ 'owned' if owned else 'not-owned' }}">{{ skin }}</li>
                         {% endfor %}
                     </ul>

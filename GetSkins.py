@@ -29,17 +29,20 @@ def cleanData(connection, skindata):
     keys = []
     names = []
 
-    for x, y in group.items():
-        names.append(y[0]["name"])
-        keys.append(x)
+    for x in group.items():
+        keys.append(x[0])
+    
+    for x in keys:
+        if "Doom Bot" in group[x][0]["name"]:
+            group.pop(x)
 
-    for i in range(0, len(names)):
+    """for i in range(0, len(names)):
 
         #exclude Doom Bot entries
         if "Doom Bot" in group[keys[i]][0]["name"]:
             group.pop(keys[i])
         else:
-            group[names[i]] = group.pop(keys[i])
+            group[names[i]] = group.pop(keys[i])"""
 
 
     #count and track if skins are owned or not
@@ -61,11 +64,11 @@ def cleanData(connection, skindata):
 
         skins[x]["total"] = total
         skins[x]["owned"] = owned
-        skins[x]["id"] = y[0]["championId"]
+        skins[x]["name"] = y[0]["name"]
 
 
         with open("final.json", "w") as f:
-            json.dump(dict(sorted(skins.items())), f, indent=2)
+            json.dump(dict(sorted(skins.items(), key=lambda item: item[1]["name"].lower())), f, indent=2)
 
 
     
